@@ -84,14 +84,38 @@ def build_response(session_attributes, speechlet_response):
     }
 
 
-def get_welcome_response():
+def get_save_key(session):
+    user_id = session['user']['userId']
+    return 'saves/' + user_id
+
+
+def get_save_from_s3(save_key, s3):
+
+    try:
+        key = s3.get_object(Bucket=BUCKET, Key=save_key)
+        saved_game = key['Body'].read()
+    except:
+        saved_game = None
+
+    return saved_game
+
+def get_welcome_response(session):
     """ If we wanted to initialize the session to have some attributes we could
     add those here
     """
 
-    session_attributes = {}
+    session_attributes = session['attributes']
+
+    save_key = get_save_key(session)
+    s3 = boto3.client('s3')
+    saved_game = get_save_from_s3(save_key, s3)
+
     card_title = "Welcome"
     speech_output = "Welcome to Zork. "
+
+    if saved_game:
+        speech_output += "Resuming saved game."
+
     # If the user either does not reply to the welcome message or says something
     # that is not understood, they will be prompted again with this text.
     reprompt_text = "You should probably walk somewhere."
@@ -117,14 +141,8 @@ def do_zork(intent, session, command=None):
 
     s3 = boto3.client('s3')
 
-    userid = session['user']['userId']
-    savekey = 'saves/' + userid
-
-    try:
-        key = s3.get_object(Bucket=BUCKET, Key=savekey)
-        savegame = key['Body'].read()
-    except:
-        savegame = None
+    save_key = get_save_key(session)
+    saved_game = get_save_from_s3(save_key, s3)
 
     if command:
         actions = command
@@ -136,7 +154,7 @@ def do_zork(intent, session, command=None):
     print('doing', actions)
 
     if actions:
-        speech_output = run_zork(actions, save=savegame)
+        speech_output = run_zork(actions, save=saved_game)
         session_attributes = {'savegame': get_save()}
 
         s3.put_object(Bucket=BUCKET, Key=savekey, Body=get_save())  # TODO: expires
@@ -149,6 +167,22 @@ def do_zork(intent, session, command=None):
                         "You can say walk north to walk north."
     return build_response(session_attributes, build_speechlet_response(
         card_title, speech_output, reprompt_text, should_end_session))
+
+
+def reset_game(intent, session):
+    """ Clears out the s3 save and starts a new game. """
+    save_key = get_save_key(session)
+    s3 = boto3.client('s3')
+
+    try:
+        s3.delete_object(Bucket=BUCKET, Key=save_key)
+    except:
+        pass
+
+    speechlet = build_speechlet_response(
+        "Reset", "Your game has been reset.", "Move or look around.", False
+    )
+    return build_response(session['attributes'], speechlet)
 
 
 def on_session_started(session_started_request, session):
@@ -166,7 +200,7 @@ def on_launch(launch_request, session):
     print("on_launch requestId=" + launch_request['requestId'] +
           ", sessionId=" + session['sessionId'])
     # Dispatch to your skill's launch
-    return get_welcome_response()
+    return get_welcome_response(session)
 
 
 def on_intent(intent_request, session):
@@ -184,9 +218,13 @@ def on_intent(intent_request, session):
     elif intent_name.startswith("Command"):
         return do_zork(intent, session, intent_name.split("Command")[1].lower())
     elif intent_name == "AMAZON.HelpIntent":
-        return get_welcome_response()
-    elif intent_name == "AMAZON.CancelIntent" or intent_name == "AMAZON.StopIntent":
+        return get_welcome_response(session)
+    elif intent_name in ["AMAZON.CancelIntent", "AMAZON.StopIntent", "AMAZON.PauseIntent"]:
         return handle_session_end_request()
+    elif intent_name == "AMAZON.StartOverIntent":
+        return reset_game(intent, session)
+    # elif intent_name == "AMAZON.YesIntent":
+    # elif intent_name == "AMAZON.NoIntent":
     else:
         raise ValueError("Invalid intent")
 
@@ -227,4 +265,3 @@ def lambda_handler(event, context):
         return on_intent(event['request'], event['session'])
     elif event['request']['type'] == "SessionEndedRequest":
         return on_session_ended(event['request'], event['session'])
-
