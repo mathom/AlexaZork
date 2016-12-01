@@ -104,7 +104,7 @@ def get_welcome_response(session):
     add those here
     """
 
-    session_attributes = session['attributes']
+    session_attributes = session.get('attributes', {})
 
     save_key = get_save_key(session)
     s3 = boto3.client('s3')
@@ -182,7 +182,7 @@ def reset_game(intent, session):
     speechlet = build_speechlet_response(
         "Reset", "Your game has been reset.", "Move or look around.", False
     )
-    return build_response(session['attributes'], speechlet)
+    return build_response(session.get('attributes', {}), speechlet)
 
 
 def on_session_started(session_started_request, session):
