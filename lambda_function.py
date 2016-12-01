@@ -6,6 +6,11 @@ import os
 import shutil
 import subprocess
 import zlib
+import boto3
+
+
+BUCKET = 'alexazork'
+
 
 def run_zork(input, save=None, look=False):
     if save:
@@ -110,18 +115,32 @@ def do_zork(intent, session, command=None):
     session_attributes = {}
     should_end_session = False
 
+    s3 = boto3.client('s3')
+
+    userid = session['user']['userId']
+    savekey = 'saves/' + userid
+
+    try:
+        key = s3.get_object(Bucket=BUCKET, Key=savekey)
+        savegame = key['Body'].read()
+    except:
+        savegame = None
+
     if command:
         actions = command
     else:
         actions = [x[1]['value'] for x in sorted(intent['slots'].items(), key=lambda x: x[0]) if x[1].get('value')]
         actions = ' '.join(actions)
+
     print('intent was', intent)
     print('doing', actions)
 
     if actions:
-        savegame = session.get('attributes', {}).get('savegame')
         speech_output = run_zork(actions, save=savegame)
         session_attributes = {'savegame': get_save()}
+
+        s3.put_object(Bucket=BUCKET, Key=savekey, Body=get_save())  # TODO: expires
+
         reprompt_text = "What do you do next?"
     else:
         speech_output = "I'm not sure what that command was. " \
@@ -188,9 +207,6 @@ def lambda_handler(event, context):
     """
     print("event.session.application.applicationId=" +
           event['session']['application']['applicationId'])
-
-    print(event)
-    print(context)
 
     """
     Uncomment this if statement and populate with your skill's application ID to
