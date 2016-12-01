@@ -1,0 +1,9 @@
+- ^\..+$
+- ^.+\.o$
+- ^.+\.zip$
+- ^.+\.c$
+- ^.+\.h$
+- ^Makefile$
+- ^README.md$
+- ^readme.txt$
+- ^history$
