@@ -1,0 +1,60 @@
+{
+  "intents": [
+    { "intent": "AMAZON.CancelIntent"},
+    { "intent": "AMAZON.HelpIntent"},
+    { "intent": "AMAZON.PauseIntent"},
+    { "intent": "AMAZON.StartOverIntent"},
+    { "intent": "AMAZON.StopIntent"},
+    { "intent": "CommandLook" },
+    { "intent": "CommandInventory" },
+    { "intent": "CommandHelp" },
+    { "intent": "CommandDiagnose" },
+    { "intent": "CommandScore" },
+    { "intent": "CommandWait" },
+    {
+      "intent": "DoZork",
+      "slots": [
+        {
+          "name": "AVerb",
+          "type": "VERB"
+        },
+        {
+          "name": "BVerb",
+          "type": "VERB"
+        },
+        {
+          "name": "ANoun",
+          "type": "NOUN"
+        },
+        {
+          "name": "BNoun",
+          "type": "NOUN"
+        },
+        {
+          "name": "CNoun",
+          "type": "NOUN"
+        },
+        {
+          "name": "DNoun",
+          "type": "NOUN"
+        },
+        {
+          "name": "BLoc",
+          "type": "LOCATION"
+        },
+        {
+          "name": "CLoc",
+          "type": "LOCATION"
+        },
+                {
+          "name": "BSwitch",
+          "type": "SWITCH"
+        },
+        {
+          "name": "CUsing",
+          "type": "USING"
+        }
+      ]
+    }
+  ]
+}

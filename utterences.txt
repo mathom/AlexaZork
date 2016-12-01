@@ -1,0 +1,12 @@
+CommandLook look
+CommandInventory inventory
+CommandHelp help
+CommandDiagnose diagnose
+CommandScore score
+CommandWait wait
+DoZork {AVerb} {BNoun}
+DoZork {AVerb} the {BNoun}
+DoZork {AVerb} {BLoc} {CNoun}
+DoZork {AVerb} {BNoun} {CLoc} {DNoun}
+DoZork {AVerb} {BSwitch} {CNoun}
+DoZork {AVerb} {BNoun} {CUsing} {DNoun}
