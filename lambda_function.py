@@ -157,7 +157,7 @@ def do_zork(intent, session, command=None):
         speech_output = run_zork(actions, save=saved_game)
         session_attributes = {'savegame': get_save()}
 
-        s3.put_object(Bucket=BUCKET, Key=savekey, Body=get_save())  # TODO: expires
+        s3.put_object(Bucket=BUCKET, Key=save_key, Body=get_save())  # TODO: expires
 
         reprompt_text = "What do you do next?"
     else:
