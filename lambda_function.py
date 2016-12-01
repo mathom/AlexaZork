@@ -8,21 +8,25 @@ import subprocess
 import zlib
 import boto3
 
-
+# bucket to store save games
 BUCKET = 'alexazork'
 
 
 def run_zork(input, save=None, look=False):
+    '''Handle I/O to Zork binary, after copying it to a working directory.'''
+    
+    # if we have a save file, restore it where Zork expects it
     if save:
         with open('/tmp/dsave.dat', 'wb') as out:
             out.write(zlib.decompress(base64.b64decode(save)))
-        prefix = "restore\n"
+        prefix = "restore\n"  # issue restore command for game
         if look:
             prefix += "look\n"
         input = prefix + input
 
-    input += "\nsave\n"
+    input += "\nsave\n"  # always update the save file after taking an action
 
+    # update the binaries in case we push new changes (could be cached later)
     if os.path.exists('/tmp/zork'):
         os.remove('/tmp/zork')
     if os.path.exists('/tmp/dtextc.dat'):
@@ -34,10 +38,17 @@ def run_zork(input, save=None, look=False):
 
     os.chdir('/tmp')
     print('sending input to zork:', json.dumps({'input': input}))
+
+    # run Zork binary and construct pipes
     cmd = subprocess.Popen(['/tmp/zork'], stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+    
+    # send and retrieve I/O
     stdout, stderr = cmd.communicate(input)
+
     print('got output:', json.dumps({'stdout': stdout.split('\n'), 'stderr': stderr}))
     print('return code', str(cmd.returncode))
+    
+    # we need to do some formatting of the vanilla Zork output
     message = stdout.replace('\n>', '\n')  # get rid of prompts
     message = message.split('\n', 1)[1]  # first line is header junk
     if save:
@@ -48,6 +59,7 @@ def run_zork(input, save=None, look=False):
 
 
 def get_save():
+    '''Return an encoded string representing the current save file.'''
     if os.path.exists('/tmp/dsave.dat'):
         with open('/tmp/dsave.dat', 'rb') as save:
             return base64.b64encode(zlib.compress(save.read()))
@@ -56,6 +68,7 @@ def get_save():
 
 
 def build_speechlet_response(title, output, reprompt_text, should_end_session):
+    ''''Build JSON structure for Alexa response.''''
     return {
         'outputSpeech': {
             'type': 'PlainText',
@@ -85,12 +98,13 @@ def build_response(session_attributes, speechlet_response):
 
 
 def get_save_key(session):
+    '''Returns path to save location in S3 for a user.''''
     user_id = session['user']['userId']
     return 'saves/' + user_id
 
 
 def get_save_from_s3(save_key, s3):
-
+    ''''Download save game from S3.''''
     try:
         key = s3.get_object(Bucket=BUCKET, Key=save_key)
         saved_game = key['Body'].read()
@@ -100,9 +114,7 @@ def get_save_from_s3(save_key, s3):
     return saved_game
 
 def get_welcome_response(session):
-    """ If we wanted to initialize the session to have some attributes we could
-    add those here
-    """
+    '''Welcome the user to Zork!'''
 
     session_attributes = session.get('attributes', {})
 
@@ -125,6 +137,7 @@ def get_welcome_response(session):
 
 
 def handle_session_end_request():
+    '''Say goodbye to the user.'''
     card_title = "Session Ended"
     speech_output = "Thank you for visiting Zork. " \
                     "Have a nice day! "
@@ -135,6 +148,10 @@ def handle_session_end_request():
 
 
 def do_zork(intent, session, command=None):
+    '''General purpose Zork commands.
+    
+    Handles save/resume as well as action sorting on input.
+    '''
     card_title = intent['name']
     session_attributes = {}
     should_end_session = False
@@ -145,8 +162,10 @@ def do_zork(intent, session, command=None):
     saved_game = get_save_from_s3(save_key, s3)
 
     if command:
+        # a single command was sent
         actions = command
     else:
+        # build a complex action out of several commands (sorting be slot name for proper order)
         actions = [x[1]['value'] for x in sorted(intent['slots'].items(), key=lambda x: x[0]) if x[1].get('value')]
         actions = ' '.join(actions)
 
@@ -157,6 +176,7 @@ def do_zork(intent, session, command=None):
         speech_output = run_zork(actions, save=saved_game)
         session_attributes = {'savegame': get_save()}
 
+        # make sure we update the save file in S3
         s3.put_object(Bucket=BUCKET, Key=save_key, Body=get_save())  # TODO: expires
 
         reprompt_text = "What do you do next?"
@@ -170,7 +190,7 @@ def do_zork(intent, session, command=None):
 
 
 def reset_game(intent, session):
-    """ Clears out the s3 save and starts a new game. """
+    '''Resets a user's game by deleting their save file.'''
     save_key = get_save_key(session)
     s3 = boto3.client('s3')
 
@@ -186,8 +206,6 @@ def reset_game(intent, session):
 
 
 def on_session_started(session_started_request, session):
-    """ Called when the session starts """
-
     print("on_session_started requestId=" + session_started_request['requestId']
           + ", sessionId=" + session['sessionId'])
 
