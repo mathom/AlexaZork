@@ -89,3 +89,4 @@ ENV/
 .ropeproject
 
 Archive.zip
+.DS_Store
