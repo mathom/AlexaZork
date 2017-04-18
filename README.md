@@ -36,7 +36,7 @@ These files are used to build the Lambda function that takes the utterences from
 
 # Installation Instructions
 
-In order to get the game working on Alexa, you will need to deploy an Alexa Skill, a Lamdba function, and an S3 bucket. Additionally, you will create an IAM 
+In order to get the game working on Alexa, you will need to deploy an Alexa Skill, a Lamdba function, and an S3 bucket. Additionally, you will create an IAM
 user that will be used by your Lamdba function to access the S3 bucket.
 
 ## Create IAM User
@@ -61,10 +61,10 @@ insturcions
 	Take leaflet
 	Read leaflet
 ## Troubleshoot
-	The game depends on the save game functionality working in order to sequence events. The leaflet test is a good example. When you open the mailbox and take the leaflet, if you succeed, 
-	that means the sequencing is working. If you try to take the leaflet and the game responds that it can't find the leaflet, it's likely because the save game isn't working and the step that 
-	opens the mailbox was forgotten. You can verify by again opening the mailbox. 
-	
+	The game depends on the save game functionality working in order to sequence events. The leaflet test is a good example. When you open the mailbox and take the leaflet, if you succeed,
+	that means the sequencing is working. If you try to take the leaflet and the game responds that it can't find the leaflet, it's likely because the save game isn't working and the step that
+	opens the mailbox was forgotten. You can verify by again opening the mailbox.
+
 # Version History
 # Initial Release
 # Updated file structure to create folders for the different targets (Alexa, Lamdba, S3).

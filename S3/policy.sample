@@ -1,0 +1,19 @@
+{
+    "Version": "2012-10-17",
+    "Id": "Policy1483726191252",
+    "Statement": [
+        {
+            "Sid": "Stmt1483726191252",
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": "arn:aws:iam::1483726191252:user/youriamuser"
+            },
+            "Action": [
+                "s3:DeleteObject",
+                "s3:GetObject",
+                "s3:PutObject"
+            ],
+            "Resource": "arn:aws:s3:::yourbuckename/*"
+        }
+    ]
+}
