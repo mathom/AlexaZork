@@ -22,7 +22,7 @@ print('Bucket is ', BUCKET)
 
 def run_zork(input, save=None, look=False):
     #'''Handle I/O to Zork binary, after copying it to a working directory.'''
-    
+
     # if we have a save file, restore it where Zork expects it
     if save:
         with open('/tmp/dsave.dat', 'wb') as out:
@@ -42,20 +42,20 @@ def run_zork(input, save=None, look=False):
 
     shutil.copyfile('/var/task/zork', '/tmp/zork')
     shutil.copyfile('/var/task/dtextc.dat', '/tmp/dtextc.dat')
-    os.chmod('/tmp/zork', 0755)
+    os.chmod('/tmp/zork', 0o0755)
 
     os.chdir('/tmp')
     print('sending input to zork:', json.dumps({'input': input}))
 
     # run Zork binary and construct pipes
     cmd = subprocess.Popen(['/tmp/zork'], stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-    
+
     # send and retrieve I/O
     stdout, stderr = cmd.communicate(input)
 
     print('got output:', json.dumps({'stdout': stdout.split('\n'), 'stderr': stderr}))
     print('return code', str(cmd.returncode))
-    
+
     # we need to do some formatting of the vanilla Zork output
     message = stdout.replace('\n>', '\n')  # get rid of prompts
     message = message.split('\n', 1)[1]  # first line is header junk
@@ -140,7 +140,7 @@ def get_welcome_response(session):
     s3 = boto3.client('s3',
     aws_access_key_id=ACCESS_KEY,
     aws_secret_access_key=SECRET_KEY)
-    
+
     saved_game = get_save_from_s3(save_key, s3)
 
     card_title = "Welcome"
@@ -170,7 +170,7 @@ def handle_session_end_request():
 
 def do_zork(intent, session, command=None):
     #'''General purpose Zork commands.
-    
+
     #Handles save/resume as well as action sorting on input.
     #'''
     card_title = intent['name']
