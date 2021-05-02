@@ -42,7 +42,7 @@ def run_zork(input, save=None, look=False):
 
     shutil.copyfile('/var/task/zork', '/tmp/zork')
     shutil.copyfile('/var/task/dtextc.dat', '/tmp/dtextc.dat')
-    os.chmod('/tmp/zork', 0o0755)
+    os.chmod('/tmp/zork', 0o755)
 
     os.chdir('/tmp')
     print('sending input to zork:', json.dumps({'input': input}))
@@ -51,7 +51,10 @@ def run_zork(input, save=None, look=False):
     cmd = subprocess.Popen(['/tmp/zork'], stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
 
     # send and retrieve I/O
-    stdout, stderr = cmd.communicate(input)
+    stdout, stderr = cmd.communicate(input.encode('ascii'))
+
+    stdout = stdout.decode('ascii')
+    stderr = stderr.decode('ascii')
 
     print('got output:', json.dumps({'stdout': stdout.split('\n'), 'stderr': stderr}))
     print('return code', str(cmd.returncode))
