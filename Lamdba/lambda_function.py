@@ -7,14 +7,22 @@ import shutil
 import subprocess
 import zlib
 import boto3
+from botocore.exceptions import ClientError
+import sys
 
+#Read in the configuration
 # bucket to store save games
-BUCKET = 'alexazork'
+BUCKET = os.environ['BUCKET']
+# Access key for IAM user to access S3 bucket
+ACCESS_KEY = os.environ['ACCESS_KEY']
+# Secret key for IAM user to access S3 bucket
+SECRET_KEY = os.environ['SECRET_KEY']
 
+print('Bucket is ', BUCKET)
 
 def run_zork(input, save=None, look=False):
-    '''Handle I/O to Zork binary, after copying it to a working directory.'''
-    
+    #'''Handle I/O to Zork binary, after copying it to a working directory.'''
+
     # if we have a save file, restore it where Zork expects it
     if save:
         with open('/tmp/dsave.dat', 'wb') as out:
@@ -34,20 +42,23 @@ def run_zork(input, save=None, look=False):
 
     shutil.copyfile('/var/task/zork', '/tmp/zork')
     shutil.copyfile('/var/task/dtextc.dat', '/tmp/dtextc.dat')
-    os.chmod('/tmp/zork', 0755)
+    os.chmod('/tmp/zork', 0o755)
 
     os.chdir('/tmp')
     print('sending input to zork:', json.dumps({'input': input}))
 
     # run Zork binary and construct pipes
     cmd = subprocess.Popen(['/tmp/zork'], stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-    
+
     # send and retrieve I/O
-    stdout, stderr = cmd.communicate(input)
+    stdout, stderr = cmd.communicate(input.encode('ascii'))
+
+    stdout = stdout.decode('ascii')
+    stderr = stderr.decode('ascii')
 
     print('got output:', json.dumps({'stdout': stdout.split('\n'), 'stderr': stderr}))
     print('return code', str(cmd.returncode))
-    
+
     # we need to do some formatting of the vanilla Zork output
     message = stdout.replace('\n>', '\n')  # get rid of prompts
     message = message.split('\n', 1)[1]  # first line is header junk
@@ -59,7 +70,7 @@ def run_zork(input, save=None, look=False):
 
 
 def get_save():
-    '''Return an encoded string representing the current save file.'''
+    #'''Return an encoded string representing the current save file.'''
     if os.path.exists('/tmp/dsave.dat'):
         with open('/tmp/dsave.dat', 'rb') as save:
             return base64.b64encode(zlib.compress(save.read()))
@@ -68,7 +79,7 @@ def get_save():
 
 
 def build_speechlet_response(title, output, reprompt_text, should_end_session):
-    ''''Build JSON structure for Alexa response.''''
+    #''''Build JSON structure for Alexa response.''''
     return {
         'outputSpeech': {
             'type': 'PlainText',
@@ -98,28 +109,41 @@ def build_response(session_attributes, speechlet_response):
 
 
 def get_save_key(session):
-    '''Returns path to save location in S3 for a user.''''
+    #'''Returns path to save location in S3 for a user.''''
     user_id = session['user']['userId']
+    print('user id is ', user_id)
     return 'saves/' + user_id
 
 
 def get_save_from_s3(save_key, s3):
-    ''''Download save game from S3.''''
+    #''''Download save game from S3.''''
+    print('Download save game from S3')
     try:
         key = s3.get_object(Bucket=BUCKET, Key=save_key)
         saved_game = key['Body'].read()
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'EntityAlreadyExists':
+            print('User already exists')
+        else:
+            print('Unexpected error:',e)
+        saved_game = None
     except:
+        print('Unable to get saved game')
+        print("Unexpected error:", sys.exc_info()[0])
         saved_game = None
 
     return saved_game
 
 def get_welcome_response(session):
-    '''Welcome the user to Zork!'''
+    #'''Welcome the user to Zork!'''
 
     session_attributes = session.get('attributes', {})
 
     save_key = get_save_key(session)
-    s3 = boto3.client('s3')
+    s3 = boto3.client('s3',
+    aws_access_key_id=ACCESS_KEY,
+    aws_secret_access_key=SECRET_KEY)
+
     saved_game = get_save_from_s3(save_key, s3)
 
     card_title = "Welcome"
@@ -137,7 +161,7 @@ def get_welcome_response(session):
 
 
 def handle_session_end_request():
-    '''Say goodbye to the user.'''
+    #'''Say goodbye to the user.'''
     card_title = "Session Ended"
     speech_output = "Thank you for visiting Zork. " \
                     "Have a nice day! "
@@ -148,15 +172,17 @@ def handle_session_end_request():
 
 
 def do_zork(intent, session, command=None):
-    '''General purpose Zork commands.
-    
-    Handles save/resume as well as action sorting on input.
-    '''
+    #'''General purpose Zork commands.
+
+    #Handles save/resume as well as action sorting on input.
+    #'''
     card_title = intent['name']
     session_attributes = {}
     should_end_session = False
 
-    s3 = boto3.client('s3')
+    s3 = boto3.client('s3',
+    aws_access_key_id=ACCESS_KEY,
+    aws_secret_access_key=SECRET_KEY)
 
     save_key = get_save_key(session)
     saved_game = get_save_from_s3(save_key, s3)
@@ -190,9 +216,11 @@ def do_zork(intent, session, command=None):
 
 
 def reset_game(intent, session):
-    '''Resets a user's game by deleting their save file.'''
+    #'''Resets a user's game by deleting their save file.'''
     save_key = get_save_key(session)
-    s3 = boto3.client('s3')
+    s3 = boto3.client('s3',
+    aws_access_key_id=ACCESS_KEY,
+    aws_secret_access_key=SECRET_KEY)
 
     try:
         s3.delete_object(Bucket=BUCKET, Key=save_key)
@@ -211,9 +239,9 @@ def on_session_started(session_started_request, session):
 
 
 def on_launch(launch_request, session):
-    """ Called when the user launches the skill without specifying what they
-    want
-    """
+    #""" Called when the user launches the skill without specifying what they
+    #want
+    #"""
 
     print("on_launch requestId=" + launch_request['requestId'] +
           ", sessionId=" + session['sessionId'])
@@ -222,7 +250,7 @@ def on_launch(launch_request, session):
 
 
 def on_intent(intent_request, session):
-    """ Called when the user specifies an intent for this skill """
+    #""" Called when the user specifies an intent for this skill """
 
     print("on_intent requestId=" + intent_request['requestId'] +
           ", sessionId=" + session['sessionId'])
@@ -248,27 +276,27 @@ def on_intent(intent_request, session):
 
 
 def on_session_ended(session_ended_request, session):
-    """ Called when the user ends the session.
-
-    Is not called when the skill returns should_end_session=true
-    """
+    #""" Called when the user ends the session.
+	#
+    #Is not called when the skill returns should_end_session=true
+    #"""
     print("on_session_ended requestId=" + session_ended_request['requestId'] +
           ", sessionId=" + session['sessionId'])
     # add cleanup logic here
 
 
 def lambda_handler(event, context):
-    """ Route the incoming request based on type (LaunchRequest, IntentRequest,
-    etc.) The JSON body of the request is provided in the event parameter.
-    """
+    #""" Route the incoming request based on type (LaunchRequest, IntentRequest,
+    #etc.) The JSON body of the request is provided in the event parameter.
+    #"""
     print("event.session.application.applicationId=" +
           event['session']['application']['applicationId'])
 
-    """
-    Uncomment this if statement and populate with your skill's application ID to
-    prevent someone else from configuring a skill that sends requests to this
-    function.
-    """
+    #"""
+    #Uncomment this if statement and populate with your skill's application ID to
+    #prevent someone else from configuring a skill that sends requests to this
+    #function.
+    #"""
     # if (event['session']['application']['applicationId'] !=
     #         "amzn1.echo-sdk-ams.app.[unique-value-here]"):
     #     raise ValueError("Invalid Application ID")
